@@ -97,3 +97,28 @@ patterns" of Hamza et al. 2023 at the capture stage.
   genomes.* Nat Biotechnol. 2021;39:442-450. Aligner: Li H. *Minimap2.* Bioinformatics 2018.
 
 Functional Nephrogenomics, Sorbonne Universite / AP-HP.
+
+## Can you rescue a missing segment by patching? (T2T + patch)
+
+`code/build_t2t_patch_and_run.sh` tests the pragmatic mitigation: use T2T-CHM13 as the capture
+reference but **patch the CFHR3-CFHR1 sequence back in as a contig** and target it in the BED, then
+align downstream on an alt-free GRCh38.
+
+```bash
+bash code/build_t2t_patch_and_run.sh /path/hs38DH.fa /path/chm13_rca.fa
+```
+
+Result (simulated carrier reads, n = 3000):
+
+| capture reference | CFHR3-CFHR1 reads on the patch (correct) | on a T2T paralogue | MAPQ 0 (ambiguous) |
+|---|---|---|---|
+| T2T + CFHR3-CFHR1 patch + BED | **92%** (all kept under a permissive rule) | 8% | ~14% |
+
+So patching **largely works** — 92% of a carrier's reads reach the patch (versus 0% at the true locus
+with bare T2T), and once aligned on an alt-free GRCh38 they land correctly. The cost is a **~14%
+multi-mapping tax**: patch↔paralogue ties collapse to MAPQ 0 and are ejected once the adaptive-sampling
+decision requires a confident mapping (keep-rate 0.86). A native, alt-free primary assembly that already
+contains CFHR3-CFHR1 remains the robust choice — **no missing target beats patch-a-missing-target.**
+
+*(The tool's `[locus-integrity]` line is not meaningful for this cross-contig setup — the patch has its
+own coordinate frame; the patch-vs-paralogue breakdown printed by the driver is the correct metric.)*

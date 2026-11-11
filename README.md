@@ -1,124 +1,116 @@
-# No ALT, no patch — and no missing target
+# No ALT, no patch — adaptive-sampling capture-reference emulation
 
-Code and data to reproduce the in-silico demonstration behind the adaptive-sampling (AS) capture
-reference study **"No alt, no patch: ALT contigs in the capture reference deplete MHC coverage under
-nanopore adaptive sampling."**
+Code and data for the in-silico part of **"No alt, no patch: ALT contigs in the capture reference
+deplete MHC coverage under nanopore adaptive sampling."**
 
-Oxford Nanopore adaptive sampling decides, in real time, whether to keep or eject each nascent read
-by aligning its first bases against a **capture reference** and keeping the molecule only when the
-best alignment falls in a target-BED region. That decision is made **before** the read is fully
-sequenced, so any read ejected here is physically lost and cannot be recovered by any downstream
-re-alignment. The choice of capture reference therefore matters, in two symmetric ways:
+Oxford Nanopore adaptive sampling (AS) decides in real time whether to keep or eject each nascent
+read by aligning its first few hundred bases against a **capture reference**. A read ejected at that
+point is physically lost. A read that is kept is sequenced to full length and is then re-aligned
+downstream on the analysis reference, whatever the capture reference said about it.
 
-| Failure mode | Locus | What happens to a target read | Signature |
+Two questions must therefore be kept apart:
+
+| | What decides it | Reversible? | Metric here |
 |---|---|---|---|
-| **Surplus copies** (ALT/HLA contigs present) | MHC class III (CFB, C2) | best hit lands on an off-target ALT/HLA contig -> **ejected** | coverage hole |
-| **Missing segment** (target absent from the reference) | RCA / Factor-H cluster (CFHR3-CFHR1) | no true target -> **mis-maps onto paralogues** | locus destroyed, keep-rate stays high |
-
-**The principle is symmetric: the AS capture reference must be a primary, alt-free assembly that
-contains every target locus and its common structural alleles - neither surplus copies nor missing
-segments. No ALT, no patch, and no missing target.**
+| **Capture** | capture reference + target BED + decision rule | no — the molecule is gone | `keep_rate` |
+| **Placement** | alignment reference | yes — re-align | `placement_ok` |
 
 ## What this repo contains
 
 ```
-code/as_altmapping_demo.py   emulates the readfish keep/eject decision, read by read
-data/CKD_SU_V6_no_alt.bed    the study capture panel - primary-only (23 contigs, no ALT/HLA)
-data/CKD_SU_V6_plus_alt.bed  the same panel + the ALT-contig intervals of an HLA-aware panel
-results/fig2_mhc_alt.*       Figure 2 - MHC/CFB, ALT-excess ejection
-results/fig3_rca_cfhr_t2t.*  Figure 3 - CFHR3-CFHR1, segment-absence (T2T-like) mis-mapping
-run.sh                       one-command reproduction from a capture reference FASTA
+code/as_emulate.py           emulator: several capture references x decision rules x best_n x prefix length
+code/make_alt_gene_bed.py    genes of the primary assembly that have an ALT / HLA / fix-patch counterpart
+code/as_altmapping_demo.py   legacy (V13 Figs. 2 and 5): primary-hit rule only
+code/build_t2t_patch_and_run.sh  legacy T2T + patch driver (see caveats below)
+data/CKD_SU_V6_no_alt.bed    study capture panel, primary-only
+data/CKD_SU_V6_plus_alt.bed  same panel + the ALT intervals of an HLA-aware panel
+data/loci_mhc.bed            MHC loci + a non-MHC chr6 control used for the emulation
+results/emu_mhc_*            emulation output (summary TSV, figure)
+run.sh                       one-command reproduction from hs38DH.fa
 ```
 
-No human sequencing data are distributed here: the demonstration uses **simulated** reads from the
-target sequence (ground truth by construction) and public reference genomes. Real-read confirmation
-for the CFHR3-CFHR1 case is possible from SRA **PRJNA916871** (Hamza et al. 2023).
+No human sequencing data are distributed. Reads are simulated from the reference (ground truth by
+construction), or taken from a public whole-genome ONT BAM with `--reads-bam`.
 
-## How the emulation works (`code/as_altmapping_demo.py`)
+## Decision rules (`code/as_emulate.py`)
 
-For each read prefix (default 400 bp, the order MinKNOW sees first) it runs `minimap2` (`map-ont`,
-via `mappy`) against two references and applies the readfish keep-rule (best alignment overlaps a
-target-BED interval):
+MinKNOW's built-in AS algorithm, used for the clinical runs, is not public. readfish (Payne et al.
+2021) is. We therefore never call one rule "the" AS rule:
 
-- `--noalt-ref` : the alt-free primary assembly (the recommended reference)
-- `--alt-ref`   : the ALT-bearing (hs38DH) or segment-deleted (T2T-like) reference under test
-- `--mapq-min`  : 0 = vanilla readfish; >0 emulates a decision that rejects ambiguous (MAPQ-0) multi-mappers
-- `--simulate N` / `--reads-bam` / `--reads-fastq` : read source (simulate draws from `--noalt-ref`)
+| rule | keep the read when … | corresponds to |
+|---|---|---|
+| `primary` | the **primary** alignment overlaps a target interval | hypothesis for MinKNOW |
+| `readfish` | `single_on` or `multi_on`: the end coordinate (`r_en` on +, `r_st` on −) of **any** alignment returned by mappy is in a target, as in readfish `make_decision()`; no MAPQ filter | readfish, documented TOML (`multi_on = "stop_receiving"`) |
+| `mapqN` | primary in target **and** MAPQ ≥ N | stricter hypothesis |
 
-Outputs: per-read TSV, a summary (keep-rate, best-hit destination, MAPQ), and a **locus-integrity**
-metric for simulated reads (`--misplace-kb`) - the fraction of reads that reach their true locus,
-which is the metric that matters at segmental-duplication loci where a broad BED masks mis-mapping
-as apparent "keep".
+`readfish` depends on how many secondary alignments mappy returns, so `--best-n` takes a list.
 
-## Reproduce
+The predicted relative depth is `k + (1 − k) · L_ej / L_full`. Here k is the keep-rate, L_ej the length
+of an ejected stub and L_full the full read length. Unmapped prefixes count as ejected.
 
-Dependencies: Python 3 with `mappy`, `pysam`, `matplotlib`, plus a capture reference FASTA
-(`hs38DH.fa`, the GRCh38 full analysis set with decoy + HLA; e.g. from `bwa.kit`).
+## Key results (simulated, 1,000 molecules per locus, 400-b prefixes, 5 % error)
+
+Keep-rate by capture reference and rule (`results/emu_mhc_summary.tsv`):
+
+| locus | noalt | hs38DH primary | hs38DH readfish (best_n 5 / 20) | hs38DH mapq1 | ALT only, primary | HLA only, primary |
+|---|---|---|---|---|---|---|
+| CFB | 1.00 | **0.23** | 0.94 / 1.00 | 0.06 | 0.23 | 1.00 |
+| C2–CFB block | 1.00 | 0.25 | 0.94 / 1.00 | 0.03 | 0.25 | 1.00 |
+| C4A–C4B | 1.00 (mapq1: 0.24) | 0.34 | 0.96 / 1.00 | 0.06 | 0.34 | 1.00 |
+| HLA-A | 1.00 | 0.38 | 0.76 / 0.94 | 0.28 | 0.91 | 0.39 |
+| HLA-DRB1 | 1.00 | 0.12 | 0.75 / 1.00 | 0.01 | 1.00 | 0.13 |
+| chr6 control | 1.00 | 1.00 | 0.99 | 1.00 | 1.00 | 1.00 |
+
+What this shows:
+
+1. **Class III (CFB, C2, C4) is depleted by the 7 MHC ALT haplotypes only.** The 525 HLA contigs
+   have no effect there. HLA-DRB1 is depleted by the HLA contigs only, and HLA-A mostly by them.
+2. **readfish's documented rule would not reproduce the depletion.** The read keeps a secondary
+   alignment on primary chr6, which gives `multi_on`, so it is kept. With best_n = 20 the read is
+   rescued completely.
+3. **Only the `primary` rule fits both observations in the cohort:**
+   - Under hs38DH, CFB reads are ejected: in the cohort 75 % of CFB reads are shorter than 1 kb,
+     against 77 % of prefixes ejected in the emulation. This rules out readfish-like `multi_on`.
+   - Under the alt-free reference, C4A–C4B reads are *not* ejected: median 6.1 kb, 4 % below 1 kb
+     (Additional file 5), although 76 % of C4 prefixes have MAPQ 0 on the alt-free reference
+     because C4A and C4B are paralogous. This rules out a MAPQ gate.
+4. Predicted depth under `primary` is 0.31, against 0.22–0.23 observed. It is the same order of
+   magnitude, not an exact match.
+
+## Genome-wide extension
 
 ```bash
-bash run.sh /path/to/hs38DH.fa
+# loci = protein-coding genes overlapping an ALT/HLA/fix counterpart present in the capture reference
+python3 code/make_alt_gene_bed.py --gtf gencode.v44.annotation.gtf.gz \
+    --alt-file hs38DH.fa.alt [--locations hg38.p14.fixLocations.txt.gz] --fai hs38DH.fa.fai \
+    [--genes clinical_genes.txt] --flank 2000 --out loci_alt_genes.bed
+# capture references in full; target BED = the same genes
+python3 code/as_emulate.py --ref noalt=GRCh38_no_alt.fa --ref hs38DH=hs38DH.fa [--ref hg38p14=hg38.p14.fa] \
+    --target-bed loci_alt_genes.bed --loci-bed loci_alt_genes.bed --simulate 200 \
+    --prefix-len 400 --best-n 5,20 --threads 16 --index-dir idx --out results/emu_genome
 ```
 
-`run.sh` builds the reduced references (chr6 +/- ALT/HLA for the MHC case; chr1 intact vs
-CFHR3-CFHR1-masked for the RCA case), runs every condition, and writes figures/TSVs into `results/`.
+Whole-genome indexes need about 8–10 GB of RAM each. `--reads-bam` with a public ONT WGS
+(e.g. HG002) replaces simulated reads with real haplotypes.
 
-### Key results (simulated n = 3000, 400-bp prefixes)
+## Caveats on the legacy T2T / CFHR3-CFHR1 demonstration (V13 Fig. 5)
 
-**MHC / CFB (Figure 2)** - capture BED is primary-only (`CKD_SU_V6_no_alt.bed`):
+The legacy run reports 0 % of CFHR3-CFHR1 reads at their "true locus" on a CFHR3-CFHR1-masked
+reference. This is a **placement** metric, and it is 0 by construction because the locus does not
+exist in that reference. The capture keep-rate is 0.91 against 0.99. The reads land on CFH, CFHR2 and
+CFHR4, which are in the BED, so they are kept, sequenced in full and placed correctly once
+re-aligned on GRCh38. A missing segment therefore costs little at capture when its paralogues are
+targeted. Its cost is at alignment (Hamza et al. 2023), and that cost is reversible.
 
-| capture reference | keep-rate |
-|---|---|
-| alt-free (chr6) | 1.00 |
-| ALT-bearing (chr6 + ALT/HLA) | **0.23** - 77% of prefixes' best hit lands on an off-target MHC ALT haplotype (chr6_GL000250-256v2_alt) |
-
-Adding those ALT intervals to the BED does **not** rescue the reads (they scatter across all seven
-MHC alt haplotypes); targeting every ALT contig in full restores 1.00 under a permissive rule but
-collapses again (0.05) once a confident-MAPQ rule is applied - i.e. patching is fragile.
-
-**CFHR3-CFHR1 / T2T (Figure 3)** - capture BED is the RCA/Factor-H cluster (chr1:196,598,161-197,040,250):
-
-| capture reference | keep-rate | reads placed at the true CFHR3-CFHR1 locus |
-|---|---|---|
-| intact GRCh38 primary | 0.99 | **96%** |
-| CFHR3-CFHR1-deleted (T2T-like) | 0.92 | **0%** |
-
-On a T2T-like reference the keep-rate looks benign (0.92) but **0%** of the segment's reads reach
-their true locus - they mis-map onto the CFHR paralogues, reproducing the uninterpretable "aberrant
-patterns" of Hamza et al. 2023 at the capture stage.
+The T2T + patch driver targets every contig of the capture reference in full, so its keep-rate is
+not informative. Its "~14 % ejected at MAPQ 0" depends on a MAPQ gate that readfish does not apply,
+and that the C4 data argue MinKNOW does not apply either. The reference used is masked GRCh38, not
+CHM13. To test a real T2T capture reference, use `as_emulate.py --ref chm13=… --ref-bed chm13=<BED
+in CHM13 coordinates>` and read `keep_rate`, not `placement_ok`.
 
 ## Citation
 
-- Companion methods paper: *No alt, no patch: ALT contigs in the capture reference deplete MHC
-  coverage under nanopore adaptive sampling* (Georget, Yousfi, Bensouna, Mesnard).
-- Hamza A, El-Sissy C, Yousfi N, et al. *The absence of CFHR3 and CFHR1 genes from the T2T-CHM13
-  assembly can limit the molecular diagnosis of complement-related diseases.* Eur J Hum Genet.
-  2023;31(7):730-732. doi:10.1038/s41431-023-01350-8.
-- Adaptive sampling: Payne A, et al. *Readfish enables targeted nanopore sequencing of gigabase-sized
-  genomes.* Nat Biotechnol. 2021;39:442-450. Aligner: Li H. *Minimap2.* Bioinformatics 2018.
+- Hamza A, et al. Eur J Hum Genet. 2023;31:730-732. doi:10.1038/s41431-023-01350-8.
+- Payne A, et al. Readfish. Nat Biotechnol. 2021;39:442-450. Li H. Minimap2. Bioinformatics 2018.
 
-Functional Nephrogenomics, Sorbonne Universite / AP-HP.
-
-## Can you rescue a missing segment by patching? (T2T + patch)
-
-`code/build_t2t_patch_and_run.sh` tests the pragmatic mitigation: use T2T-CHM13 as the capture
-reference but **patch the CFHR3-CFHR1 sequence back in as a contig** and target it in the BED, then
-align downstream on an alt-free GRCh38.
-
-```bash
-bash code/build_t2t_patch_and_run.sh /path/hs38DH.fa /path/chm13_rca.fa
-```
-
-Result (simulated carrier reads, n = 3000):
-
-| capture reference | CFHR3-CFHR1 reads on the patch (correct) | on a T2T paralogue | MAPQ 0 (ambiguous) |
-|---|---|---|---|
-| T2T + CFHR3-CFHR1 patch + BED | **92%** (all kept under a permissive rule) | 8% | ~14% |
-
-So patching **largely works** — 92% of a carrier's reads reach the patch (versus 0% at the true locus
-with bare T2T), and once aligned on an alt-free GRCh38 they land correctly. The cost is a **~14%
-multi-mapping tax**: patch↔paralogue ties collapse to MAPQ 0 and are ejected once the adaptive-sampling
-decision requires a confident mapping (keep-rate 0.86). A native, alt-free primary assembly that already
-contains CFHR3-CFHR1 remains the robust choice — **no missing target beats patch-a-missing-target.**
-
-*(The tool's `[locus-integrity]` line is not meaningful for this cross-contig setup — the patch has its
-own coordinate frame; the patch-vs-paralogue breakdown printed by the driver is the correct metric.)*
+Functional Nephrogenomics, Sorbonne Université / AP-HP.

@@ -113,7 +113,7 @@ Number of genes with keep-rate < 0.5 under the primary-hit rule:
 |---|---|---|
 | primary only | 1 | 19 |
 | + 261 ALT | 341 | 721 |
-| + 166 fix patches | 242 | 709 |
+| + 166 fix patches | 242 | 708 |
 | + 90 novel patches | 63 | 234 |
 | hg38.p14 (all) | 680 | 1,504 |
 
@@ -127,7 +127,10 @@ Number of genes with keep-rate < 0.5 under the primary-hit rule:
     cluster);
   - *ACTN4* (0.50), *WDR73*, *PTEN*, *SDHB*, *NLRP3*;
   - in addition to the MHC.
-- **The readfish rule keeps every gene** (1.00 for primary-sequence reads).
+- **The readfish rule (best_n 5) keeps almost every gene**: median keep-rate 1.00 under hg38.p14, and
+  every panel gene listed above at 0.99-1.00. The 36 genes still below 0.8 lie in multi-copy regions
+  (the chr19 LRC/KIR, the MHC, the chrY TSPY array), plausibly because more near-equal copies compete
+  than the five alignments mappy reports (best_n 20 not run on p14).
 - Reads simulated from the patch sequence (`@patch` loci) map patch coordinates by offset from the
   primary region. This is approximate (patch orientation and indels are ignored), so use those
   values for direction only.

@@ -19,6 +19,9 @@ Two questions must therefore be kept apart:
 
 ```
 code/as_emulate.py           emulator: several capture references x decision rules x best_n x prefix length
+code/patch_divergence.py     per-contig alignment to the primary region, 10-kb divergence windows
+code/run_p14.sh, run_p14_patches.sh   hg38.p14 drivers (gene level; per-patch, Fig. 5)
+code/fig5_patches.py         manuscript Fig. 5
 code/make_alt_gene_bed.py    genes of the primary assembly that have an ALT / HLA / fix-patch counterpart
 code/as_altmapping_demo.py   legacy (V13 Figs. 2 and 5): primary-hit rule only
 code/build_t2t_patch_and_run.sh  legacy T2T + patch driver (see caveats below)
@@ -134,6 +137,48 @@ Number of genes with keep-rate < 0.5 under the primary-hit rule:
 - Reads simulated from the patch sequence (`@patch` loci) map patch coordinates by offset from the
   primary region. This is approximate (patch orientation and indels are ignored), so use those
   values for direction only.
+
+### General or patch-specific? (`code/run_p14_patches.sh`, manuscript Fig. 5)
+
+```bash
+bash code/run_p14_patches.sh      # after run_p14.sh; ~20 min on 8 cores
+```
+
+Every ALT contig, fix patch and novel patch is aligned to its primary region (`code/patch_divergence.py`:
+minimap2 asm20 through mappy, in 50-kb chunks) and cut into 10-kb windows of local divergence
+(mismatches + indel events per kb). Each window is sampled with 20 molecules from the **primary
+haplotype** and 20 from the **contig haplotype**. Capture is emulated against the primary assembly plus
+the contig's own class; the target BED is the primary regions of all contigs (17,255 windows, 507
+contigs). `code/fig5_patches.py` draws the figure and writes `results/fig5_patches_windows.tsv`,
+`results/fig5_patches_contigs.tsv` and `results/fig5_patches_numbers.txt`.
+
+The answer is **both**:
+
+| differences per kb | windows | primary haplotype | contig haplotype | readfish, contig haplotype |
+|---|---|---|---|---|
+| 0 | 8,204 | 0.46 | 0.46 | 0.97 |
+| 1–2 | 2,112 | 0.53 | 0.23 | 0.90 |
+| 2–5 | 2,314 | 0.59 | 0.16 | 0.85 |
+| > 20 | 254 | 0.59 | 0.03 | 0.23 |
+
+- **General part.** Where the contig copies the primary sequence (48 % of windows, 63 % of fix-patch
+  windows), the primary hit falls on either copy, and about half of the reads are kept whichever
+  haplotype they come from.
+- **Sequence-dependent part.** Where the sequences differ, reads from the contig haplotype go to the
+  contig and are ejected (Spearman ρ = −0.69 against divergence). For a fix patch, the contig haplotype
+  is the corrected sequence. Reads from the primary haplotype are kept more often (0.59 at 2–5 /kb), but
+  not always.
+- Per-contig medians (primary / contig haplotype): ALT 0.52 / 0.38, fix 0.51 / 0.48, novel 0.53 / 0.43.
+- **Panel genes, contig haplotype:** *CFH* 0.33, *CFHR2* 0.40, *CFHR4* 0.34, *CFHR5* 0.44, *F13B* 0.44,
+  *ADAMTS13* 0.51.
+- **readfish does not rescue divergent contig haplotypes** (0.23 above 20 /kb): they have no on-target
+  secondary alignment to fall back on.
+- Against the primary assembly alone, contig-haplotype reads are kept at 0.95–0.99, or 0.83 for the most
+  divergent fix windows. This is the control.
+- Gene values in Fig. 5c average 10-kb windows and differ slightly from the gene ± 2 kb values of
+  `p14_gene_keep.tsv`.
+- One patch (chr22_ML143378v1_fix) crashed mappy with 50-kb chunks and was re-aligned with 10-kb chunks.
+  Five short location rows yielded no window.
 
 ## Caveats on the legacy T2T / CFHR3-CFHR1 demonstration (V13 Fig. 5)
 

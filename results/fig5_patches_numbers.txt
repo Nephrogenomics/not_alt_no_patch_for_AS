@@ -1,0 +1,26 @@
+windows analysed: 17255 (alt 9652, fix 5442, novel 2161)
+contigs with >=1 window: 507 / 512
+  diff/kb      0: n= 8204  keep primary-hap 0.46  contig-hap 0.46  | readfish 0.98 / 0.97
+  diff/kb   ≤0.5: n= 1965  keep primary-hap 0.39  contig-hap 0.33  | readfish 0.93 / 0.92
+  diff/kb  0.5–1: n= 1304  keep primary-hap 0.47  contig-hap 0.29  | readfish 0.95 / 0.93
+  diff/kb    1–2: n= 2112  keep primary-hap 0.53  contig-hap 0.23  | readfish 0.94 / 0.90
+  diff/kb    2–5: n= 2314  keep primary-hap 0.59  contig-hap 0.16  | readfish 0.93 / 0.85
+  diff/kb   5–10: n=  826  keep primary-hap 0.56  contig-hap 0.07  | readfish 0.92 / 0.71
+  diff/kb  10–20: n=  276  keep primary-hap 0.66  contig-hap 0.06  | readfish 0.93 / 0.60
+  diff/kb    >20: n=  254  keep primary-hap 0.59  contig-hap 0.03  | readfish 0.86 / 0.23
+  alt  : median diff/kb 0.50; identical windows 37%; keep primary-hap 0.45, contig-hap 0.28, heterozygote mean 0.36
+  fix  : median diff/kb 0.00; identical windows 63%; keep primary-hap 0.55, contig-hap 0.42, heterozygote mean 0.48
+  novel: median diff/kb 0.00; identical windows 56%; keep primary-hap 0.50, contig-hap 0.38, heterozygote mean 0.44
+  Spearman keep vs divergence: primary-hap rho=0.21, contig-hap rho=-0.69
+  gene ADAMTS13  fix       windows=  6 primary-hap 0.47 contig-hap 0.51
+  gene ACTN4     fix       windows= 10 primary-hap 0.57 contig-hap 0.47
+  gene WDR73     fix       windows=  3 primary-hap 0.48 contig-hap 0.55
+  gene PTEN      fix       windows= 12 primary-hap 0.54 contig-hap 0.47
+  gene F13B      novel     windows=  4 primary-hap 0.55 contig-hap 0.44
+  gene CFH       novel     windows= 11 primary-hap 0.61 contig-hap 0.33
+  gene CFHR2     novel     windows=  3 primary-hap 0.63 contig-hap 0.40
+  gene CFHR4     novel     windows=  4 primary-hap 0.69 contig-hap 0.34
+  gene CFHR5     novel     windows=  4 primary-hap 0.60 contig-hap 0.44
+  gene C2        alt       windows= 31 primary-hap 0.24 contig-hap 0.17
+  gene CFB       alt       windows=  6 primary-hap 0.23 contig-hap 0.19
+  gene C4A       alt       windows= 11 primary-hap 0.35 contig-hap 0.20

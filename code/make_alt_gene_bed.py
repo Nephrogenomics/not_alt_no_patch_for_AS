@@ -53,7 +53,7 @@ def regions_from_locations(path):
             f = ln.rstrip("\n").split("\t")
             if len(f) >= 5 and f[0].isdigit():      # UCSC table with leading 'bin' column
                 f = f[1:]
-            out.append((f[0], int(f[1]), int(f[2]), f[3] if len(f) > 3 else "?"))
+            out.append((f[0], int(f[1]), int(f[2]), (f[3] if len(f) > 3 else "?").split(":")[0]))
     return out
 
 

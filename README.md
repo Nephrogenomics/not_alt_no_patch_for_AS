@@ -93,6 +93,45 @@ python3 code/as_emulate.py --ref noalt=GRCh38_no_alt.fa --ref hs38DH=hs38DH.fa [
 Whole-genome indexes need about 8–10 GB of RAM each. `--reads-bam` with a public ONT WGS
 (e.g. HG002) replaces simulated reads with real haplotypes.
 
+## "No patch": UCSC hg38.p14 (`code/run_p14.sh`)
+
+```bash
+bash code/run_p14.sh hg38.p14.fa.gz fixLocations.txt.gz altLocations.txt.gz gencode.v38.annotation.gtf.gz hs38DH.fa.fai
+```
+
+The run splits hg38.p14 into the primary assembly, the 261 GRCh38 ALT contigs, 166 GRC fix patches and
+90 novel patches. A patch is any `*_alt` contig absent from hs38DH. It then emulates capture against
+the primary assembly alone, the primary plus each class, and the full p14. The loci are the 1,673
+protein-coding genes (GENCODE v38, ± 2 kb) that overlap a counterpart contig, each with 100
+molecules. The target BED is the same genes in primary coordinates. Results:
+`results/emu_p14_summary.tsv` and `results/p14_gene_keep.tsv` (one row per gene; reads simulated
+from the primary sequence).
+
+Number of genes with keep-rate < 0.5 under the primary-hit rule:
+
+| capture reference | genes < 0.5 | genes < 0.8 |
+|---|---|---|
+| primary only | 1 | 19 |
+| + 261 ALT | 341 | 721 |
+| + 166 fix patches | 242 | 709 |
+| + 90 novel patches | 63 | 234 |
+| hg38.p14 (all) | 680 | 1,504 |
+
+- **Fix patches deplete as much as ALT contigs do.** A fix patch is a near-identical copy of a
+  primary region, so the primary hit falls on it about half the time: the median keep-rate is 0.53
+  for the 666 genes under a fix patch only.
+- **Genes on the study panel (CKD_SU_V6) that would be hit under hg38.p14**, with keep-rate under the
+  patch class alone:
+  - *ADAMTS13* (fix, 0.44);
+  - *CFH* 0.64, *CFHR2* 0.66, *CFHR4* 0.54, *CFHR5* 0.60 and *F13B* 0.47 (novel patch over the RCA
+    cluster);
+  - *ACTN4* (0.50), *WDR73*, *PTEN*, *SDHB*, *NLRP3*;
+  - in addition to the MHC.
+- **The readfish rule keeps every gene** (1.00 for primary-sequence reads).
+- Reads simulated from the patch sequence (`@patch` loci) map patch coordinates by offset from the
+  primary region. This is approximate (patch orientation and indels are ignored), so use those
+  values for direction only.
+
 ## Caveats on the legacy T2T / CFHR3-CFHR1 demonstration (V13 Fig. 5)
 
 The legacy run reports 0 % of CFHR3-CFHR1 reads at their "true locus" on a CFHR3-CFHR1-masked

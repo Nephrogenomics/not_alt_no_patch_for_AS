@@ -141,7 +141,7 @@ Number of genes with keep-rate < 0.5 under the primary-hit rule:
 ### General or patch-specific? (`code/run_p14_patches.sh`, manuscript Fig. 5)
 
 ```bash
-bash code/run_p14_patches.sh      # after run_p14.sh; ~20 min on 8 cores
+bash code/run_p14_patches.sh      # after run_p14.sh; about 25 min on 8 cores
 ```
 
 Every ALT contig, fix patch and novel patch is aligned to its primary region (`code/patch_divergence.py`:
@@ -178,7 +178,7 @@ The answer is **both**:
 - Gene values in Fig. 5c average 10-kb windows and differ slightly from the gene ± 2 kb values of
   `p14_gene_keep.tsv`.
 - One patch (chr22_ML143378v1_fix) crashed mappy with 50-kb chunks and was re-aligned with 10-kb chunks.
-  Five short location rows yielded no window.
+  Five contigs yielded no window of at least 2 kb.
 
 ## Caveats on the legacy T2T / CFHR3-CFHR1 demonstration (V13 Fig. 5)
 

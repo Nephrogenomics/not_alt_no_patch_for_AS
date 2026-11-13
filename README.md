@@ -196,14 +196,15 @@ pieces merged with 1-kb tolerance). `as_emulate.py --extra-bed TAG=BED` decides 
 several BEDs on the same alignments. `results/CKD_SU_V6_projected.bed` is the study panel projected
 this way (1,230 intervals).
 
-The clinical BED (`data/CKD_SU_V6_plus_alt.bed`) already carries ALT intervals, but only 18. They sit on
-2 of the 7 MHC haplotypes (GL000251, GL000254), cover the HLA class I and II genes, and leave out
-CFB/C2/C4 and every fix or novel patch.
+The +ALT BED (`data/CKD_SU_V6_plus_alt.bed`, the ALT intervals of an HLA-aware panel) carries 18 ALT
+intervals, a superset of the two 33- and 35-kb blocks of the clinical BEDs. They sit on 2 of the 7 MHC
+haplotypes (GL000251, GL000254), cover the HLA class I and II genes, and leave out CFB/C2/C4 and every
+fix or novel patch.
 
 **Panel genes** (163 CKD panel genes with a counterpart contig, 50 molecules per haplotype, hg38.p14,
 primary-hit rule; keep-rate primary / contig haplotype):
 
-| gene | standard BED | clinical BED (+ALT HLA) | projected, ALT only | projected, all contigs |
+| gene | standard BED | +ALT HLA BED | projected, ALT only | projected, all contigs |
 |---|---|---|---|---|
 | *CFB* | 0.32 / 0.13 | 0.32 / 0.13 | 0.92 / 0.91 | 0.92 / 0.91 |
 | *C2* | 0.22 / 0.09 | 0.22 / 0.09 | 1.00 / 0.99 | 1.00 / 0.99 |
@@ -224,7 +225,7 @@ Overall under hg38.p14: 0.40 → 0.97 (primary-hit), 0.92 → 1.00 (readfish), 0
 
 - **The loss is a coordinate mismatch between BED and reference.** A complete projection removes it under
   the primary-hit and readfish rules, divergent contig haplotypes included.
-- **The projection must be complete.** The clinical BED, with ALT intervals on HLA genes only, changes
+- **The projection must be complete.** The +ALT BED, with ALT intervals on HLA genes only, changes
   nothing for CFB/C2. An ALT-only projection leaves fix and novel genes (*ADAMTS13*, *CFH*) lost.
 - **It does not help under a MAPQ gate.** Identical copies give MAPQ 0 whatever the BED says.
 - *CFB* stays at 0.92 because the projection has small holes where the contig alignment yielded no

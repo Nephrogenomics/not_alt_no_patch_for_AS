@@ -422,6 +422,9 @@ def main():
     ap.add_argument("--target-bed", required=True, help="AS target BED as loaded on the instrument")
     ap.add_argument("--ref-bed", action="append", default=[], metavar="NAME=BED",
                     help="target BED for one reference in its own coordinates (e.g. CHM13)")
+    ap.add_argument("--extra-bed", action="append", default=[], metavar="TAG=BED",
+                    help="also decide every read against this target BED, on the same alignments; "
+                         "reported as reference '<ref>|<TAG>' (e.g. a BED projected onto ALT/patch contigs)")
     ap.add_argument("--loci-bed", help="loci to sample and summarise (name in column 4)")
     ap.add_argument("--simulate", type=int, default=0, help="molecules simulated per locus")
     ap.add_argument("--source-ref", help="FASTA for simulated reads (default: first --ref, must be FASTA)")
@@ -465,6 +468,10 @@ def main():
     for s in args.ref_bed:
         n, _, p = s.partition("=")
         beds[n] = Intervals(p)
+    extra = []
+    for s_ in args.extra_bed:
+        t, _, p = s_.partition("=")
+        extra.append((t, Intervals(p)))
     log(f"target BED: {default_bed.n} merged intervals; refs: {', '.join(refnames)}; "
         f"prefix {plens}; best_n {bns}; mapq gate {args.mapq_min}")
 
@@ -510,6 +517,8 @@ def main():
                     rec = decide(h, beds[name], args.mapq_min)
                     ok = placement_ok(rec["prim"], m["origins"][pl], args.placement_tol)
                     add(accs[(m["locus"], name, bn, pl)], rec, ok)
+                    for t, xb in extra:
+                        add(accs[(m["locus"], f"{name}|{t}", bn, pl)], decide(h, xb, args.mapq_min), ok)
                     if pr:
                         p = rec["prim"]
                         pr.write("\t".join(str(x) for x in (
@@ -518,16 +527,18 @@ def main():
                             p.r_st if p else -1, p.mapq if p else 0, rec["rf_class"],
                             int(rec["keep_primary"]), int(rec["keep_readfish"]), int(rec["keep_mapq"]),
                             "NA" if ok is None else int(ok))) + "\n")
-                tot = [a for (l, r, b, p), a in accs.items() if r == name and b == bn and p == pl]
-                n = sum(a["n"] for a in tot) or 1
-                log(f"  prefix {pl:>5}: keep primary {sum(a['keep_primary'] for a in tot) / n:.3f} | "
-                    f"readfish {sum(a['keep_readfish'] for a in tot) / n:.3f} | "
-                    f"mapq>={args.mapq_min} {sum(a['keep_mapq'] for a in tot) / n:.3f} | "
-                    f"unmapped {sum(a['unmapped'] for a in tot) / n:.3f}")
+                for rn in [name] + [f"{name}|{t}" for t, _ in extra]:
+                    tot = [a for (l, r, b, p), a in accs.items() if r == rn and b == bn and p == pl]
+                    n = sum(a["n"] for a in tot) or 1
+                    log(f"  {rn:<24} prefix {pl:>5}: keep primary {sum(a['keep_primary'] for a in tot) / n:.3f} | "
+                        f"readfish {sum(a['keep_readfish'] for a in tot) / n:.3f} | "
+                        f"mapq>={args.mapq_min} {sum(a['keep_mapq'] for a in tot) / n:.3f} | "
+                        f"unmapped {sum(a['unmapped'] for a in tot) / n:.3f}")
             del al
     if pr:
         pr.close()
         log(f"[tsv] wrote {args.out}_perread.tsv.gz")
+    refnames = refnames + [f"{n}|{t}" for n in refnames for t, _ in extra]
     hdr, rows = write_summary(f"{args.out}_summary.tsv", accs, args, refnames)
     log(f"[tsv] wrote {args.out}_summary.tsv ({len(rows)} rows)")
     if not args.no_figure:

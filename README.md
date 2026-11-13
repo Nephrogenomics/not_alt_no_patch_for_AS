@@ -22,6 +22,8 @@ code/as_emulate.py           emulator: several capture references x decision rul
 code/patch_divergence.py     per-contig alignment to the primary region, 10-kb divergence windows
 code/run_p14.sh, run_p14_patches.sh   hg38.p14 drivers (gene level; per-patch, Fig. 5)
 code/fig5_patches.py         manuscript Fig. 5
+code/project_bed.py          lift a primary BED onto the ALT / fix / novel contigs (projected BED)
+code/run_projected_bed.sh, summarize_projbed.py   projected-BED emulation (results/projbed_*)
 code/make_alt_gene_bed.py    genes of the primary assembly that have an ALT / HLA / fix-patch counterpart
 code/as_altmapping_demo.py   legacy (V13 Figs. 2 and 5): primary-hit rule only
 code/build_t2t_patch_and_run.sh  legacy T2T + patch driver (see caveats below)
@@ -179,6 +181,62 @@ The answer is **both**:
   `p14_gene_keep.tsv`.
 - One patch (chr22_ML143378v1_fix) crashed mappy with 50-kb chunks and was re-aligned with 10-kb chunks.
   Five contigs yielded no window of at least 2 kb.
+
+## Would a projected BED fix it? (`code/run_projected_bed.sh`)
+
+```bash
+bash code/run_projected_bed.sh     # after run_p14.sh and run_p14_patches.sh
+```
+
+A capture BED in primary coordinates says nothing about the ALT and patch contigs. A read whose primary
+alignment lands on a contig copy of a target is therefore off target. The alternative to removing the
+contigs is to keep them and add their coordinates to the BED. `code/project_bed.py` lifts a BED onto
+every contig through the 10-kb alignment windows of Fig. 5 (linear interpolation inside each window,
+pieces merged with 1-kb tolerance). `as_emulate.py --extra-bed TAG=BED` decides each read against
+several BEDs on the same alignments. `results/CKD_SU_V6_projected.bed` is the study panel projected
+this way (1,230 intervals).
+
+The clinical BED (`data/CKD_SU_V6_plus_alt.bed`) already carries ALT intervals, but only 18. They sit on
+2 of the 7 MHC haplotypes (GL000251, GL000254), cover the HLA class I and II genes, and leave out
+CFB/C2/C4 and every fix or novel patch.
+
+**Panel genes** (163 CKD panel genes with a counterpart contig, 50 molecules per haplotype, hg38.p14,
+primary-hit rule; keep-rate primary / contig haplotype):
+
+| gene | standard BED | clinical BED (+ALT HLA) | projected, ALT only | projected, all contigs |
+|---|---|---|---|---|
+| *CFB* | 0.32 / 0.13 | 0.32 / 0.13 | 0.92 / 0.91 | 0.92 / 0.91 |
+| *C2* | 0.22 / 0.09 | 0.22 / 0.09 | 1.00 / 0.99 | 1.00 / 0.99 |
+| *HLA-DRB1* | 1.00 / 0.00 | 1.00 / 0.08 | 1.00 / 0.85 | 1.00 / 0.85 |
+| *ADAMTS13* (fix) | 0.40 / 0.44 | 0.40 / 0.44 | 0.40 / 0.44 | 1.00 / 1.00 |
+| *CFH* (novel) | 0.68 / 0.28 | 0.68 / 0.28 | 0.68 / 0.28 | 1.00 / 1.00 |
+
+**Genome-wide windows** (the 17,255 windows of Fig. 5, each contig with primary + its own class,
+primary-hit rule, primary / contig haplotype):
+
+| diff/kb | standard BED | projected BED |
+|---|---|---|
+| 0 | 0.46 / 0.46 | 0.99 / 0.99 |
+| 1–5 | 0.56 / 0.20 | 0.98 / 0.98 |
+| >20 | 0.59 / 0.03 | 0.98 / 0.92 |
+
+Overall under hg38.p14: 0.40 → 0.97 (primary-hit), 0.92 → 1.00 (readfish), 0.06 → 0.13 (MAPQ ≥ 1).
+
+- **The loss is a coordinate mismatch between BED and reference.** A complete projection removes it under
+  the primary-hit and readfish rules, divergent contig haplotypes included.
+- **The projection must be complete.** The clinical BED, with ALT intervals on HLA genes only, changes
+  nothing for CFB/C2. An ALT-only projection leaves fix and novel genes (*ADAMTS13*, *CFH*) lost.
+- **It does not help under a MAPQ gate.** Identical copies give MAPQ 0 whatever the BED says.
+- *CFB* stays at 0.92 because the projection has small holes where the contig alignment yielded no
+  10-kb window. *F13B* is low under every reference because of panel BED coverage, not the contigs.
+- For the most divergent HLA haplotypes the projected BED does slightly better than a primary-only
+  reference (*HLA-DRB1* contig haplotype 0.85 against 0.63): reads that map nowhere well on the primary
+  sequence find their own contig.
+- Simulation only, untested on a real run, and MinKNOW's decision rule is not public. Removing ALT and
+  patch contigs works whatever the rule; the projected BED works only if the instrument decides on the
+  primary alignment without a MAPQ filter.
+
+Full values: `results/projbed_numbers.txt`, `projbed_genes.tsv`, `projbed_divergence.tsv`.
 
 ## Caveats on the legacy T2T / CFHR3-CFHR1 demonstration (V13 Fig. 5)
 

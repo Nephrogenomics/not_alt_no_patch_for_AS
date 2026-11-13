@@ -1,0 +1,36 @@
+panel genes with a counterpart contig: 163
+hg38.p14, primary-hit rule, keep-rate primary / contig haplotype (standard | clinical | projected ALT only | projected all; primary-only reference):
+  CFB       0.32/0.13 | 0.32/0.13 | 0.92/0.91 | 0.92/0.91   ; primary-only 1.00/1.00
+  C2        0.22/0.09 | 0.22/0.09 | 1.00/0.99 | 1.00/0.99   ; primary-only 1.00/0.99
+  C4A       0.26/0.18 | 0.26/0.18 | 1.00/1.00 | 1.00/1.00   ; primary-only 1.00/1.00
+  HLA-A     1.00/0.01 | 1.00/0.06 | 1.00/0.95 | 1.00/0.95   ; primary-only 1.00/0.98
+  HLA-DRB1  1.00/0.00 | 1.00/0.08 | 1.00/0.85 | 1.00/0.85   ; primary-only 1.00/0.63
+  ADAMTS13  0.40/0.44 | 0.40/0.44 | 0.40/0.44 | 1.00/1.00   ; primary-only 1.00/1.00
+  ACTN4     0.50/0.44 | 0.50/0.44 | 0.50/0.44 | 1.00/1.00   ; primary-only 1.00/1.00
+  WDR73     0.38/0.54 | 0.38/0.54 | 0.38/0.54 | 1.00/0.98   ; primary-only 1.00/0.98
+  PTEN      0.64/0.54 | 0.64/0.54 | 0.64/0.54 | 1.00/1.00   ; primary-only 1.00/1.00
+  CFH       0.68/0.28 | 0.68/0.28 | 0.68/0.28 | 1.00/1.00   ; primary-only 1.00/1.00
+  CFHR2     0.70/0.30 | 0.70/0.30 | 0.70/0.30 | 1.00/1.00   ; primary-only 1.00/1.00
+  CFHR4     0.64/0.36 | 0.64/0.36 | 0.64/0.36 | 1.00/1.00   ; primary-only 1.00/1.00
+  CFHR5     0.56/0.40 | 0.56/0.40 | 0.56/0.40 | 1.00/1.00   ; primary-only 1.00/1.00
+  F13B      0.12/0.04 | 0.12/0.04 | 0.12/0.04 | 0.18/0.04   ; primary-only 0.18/0.04
+median keep relative to the primary-only reference, hg38.p14 (primary / contig haplotype):
+  primary   0.54/0.40 | 0.54/0.40 | 0.70/0.55 | 1.00/1.00
+  readfish  1.00/1.00 | 1.00/1.00 | 1.00/1.00 | 1.00/1.00
+  mapq1     0.03/0.00 | 0.03/0.00 | 0.04/0.00 | 0.04/0.00
+genome-wide windows, mean keep-rate over molecules (primary-hit / readfish / mapq1), standard BED -> projected BED:
+  plus_ALT   0.607 / 0.930 / 0.410  ->  0.981 / 0.995 / 0.455
+  plus_fix   0.794 / 0.991 / 0.619  ->  0.962 / 0.994 / 0.640
+  plus_novel 0.878 / 0.973 / 0.778  ->  0.983 / 0.994 / 0.787
+  hg38.p14   0.396 / 0.922 / 0.062  ->  0.970 / 0.996 / 0.127
+by divergence, own class, primary-hit rule (primary / contig haplotype), standard -> projected:
+  primary  0     0.46/0.46 -> 0.99/0.99
+  primary  <=1   0.42/0.31 -> 0.98/0.98
+  primary  1-5   0.56/0.20 -> 0.98/0.98
+  primary  5-20  0.59/0.07 -> 0.98/0.97
+  primary  >20   0.59/0.03 -> 0.98/0.92
+  readfish 0     0.98/0.97 -> 1.00/1.00
+  readfish <=1   0.94/0.92 -> 1.00/1.00
+  readfish 1-5   0.94/0.87 -> 1.00/0.99
+  readfish 5-20  0.92/0.69 -> 1.00/0.99
+  readfish >20   0.86/0.23 -> 1.00/0.99
